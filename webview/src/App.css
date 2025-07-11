@@ -1,0 +1,308 @@
+/* General Body & Root Styles */
+body {
+  background-color: #f7f7f7;
+  color: #333;
+  margin: 0;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Main App Container - now takes up the full screen */
+.card {
+  position: relative;
+  background-color: #1c1c1e; /* Dark, slightly off-black card */
+  padding: 2em 1.5em; /* Adjusted padding */
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Remove decorative circles for a cleaner look */
+.card::before, .card::after {
+  display: none;
+}
+
+/* New structural containers for flexbox */
+.top-content, .bottom-content, .in-progress-container, .stats-container {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+.top-content {
+  flex-shrink: 0; /* Prevents shrinking */
+}
+.bottom-content {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+/* Header & Subtitle */
+h1 {
+  font-size: 2.2em;
+  font-weight: 700;
+  margin: 0 0 0.25em 0;
+  color: #32d74b; /* Vibrant, sporty green */
+}
+
+.read-the-docs {
+  color: #8d8d92; /* Softer gray for subtitle */
+  margin: 0;
+}
+
+/* Controls & Buttons */
+button {
+  font-family: 'Bebas Neue', sans-serif; /* Apply font to all buttons */
+  width: 100%;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 16px 0;
+  font-size: 1.1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+  margin-top: 1em;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button.start-run-button {
+  background-color: #32d74b; /* Sporty Green */
+  color: #1c1c1e; /* Dark text for high contrast on green */
+  width: 100px; /* Further Reduced Circle size */
+  height: 100px; /* Further Reduced Circle size */
+  border-radius: 50%; /* Make it a circle */
+  font-size: 1.4em; /* Adjusted font size */
+  margin: 0 auto; /* Center the circle */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+button.start-run-button:hover {
+  background-color: #28a745;
+}
+button.end-run-button {
+  background-color: #ff453a; /* Sporty Red */
+  width: 80%; /* Make it narrower than full width */
+  margin: 0 auto 1em auto; /* Center it */
+  font-size: 1.4em; /* Significantly increased font size */
+}
+button.strava-button {
+  background-color: #e85e26; /* More muted Strava orange */
+  width: 80%; /* Make it narrower than full width */
+  margin: 0 auto; /* Center it */
+}
+
+button:disabled {
+  background-color: #3a3a3c;
+  color: #8d8d92;
+  cursor: not-allowed;
+}
+
+button.strava-button:disabled:hover {
+  background-color: #ffb380; /* Keep light orange on hover when disabled */
+}
+
+/* Stats Container */
+.stats-container {
+  background-color: #2c2c2e;
+  border-radius: 12px;
+  padding: 1.5em;
+  width: auto; /* Let it be auto-sized by padding */
+  margin: 0; /* Remove auto margins */
+  text-align: left;
+  flex-grow: 1; /* Allow it to grow */
+}
+
+.stats-container h2 {
+  color: #eaeaebeb;
+  text-align: center;
+  font-weight: 600;
+  margin: 0 0 1em 0;
+}
+
+.stat {
+  font-size: 1.2em;
+  display: flex;
+  justify-content: space-between;
+  padding: 1em 0;
+  border-bottom: 1px solid #48484a;
+}
+.stat:first-of-type {
+  border-top: 1px solid #48484a;
+}
+.stat strong {
+  color: #8d8d92;
+  font-weight: 500;
+}
+span.value {
+  color: #eaeaebeb;
+  font-weight: 600;
+}
+
+/* Run in Progress Indicator */
+.in-progress-container {
+  flex-grow: 1; /* Takes up the available middle space */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #8d8d92;
+  font-size: 1.5em; /* Significantly increased font size */
+}
+
+.in-progress-container h2 {
+  color: #eaeaebeb;
+  margin-bottom: 0.5em;
+}
+
+.in-progress-container p {
+  color: #8d8d92;
+}
+
+.pulsing-dot {
+  margin-top: 1em;
+  height: 10px;
+  width: 10px;
+  background-color: #32d74b;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.6; }
+}
+
+/* Error Message */
+.error {
+  color: #ff453a;
+  margin-top: 1em;
+  font-weight: 500;
+}
+
+/* Map View Styles */
+.map-view-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 100;
+}
+
+.close-map-button {
+  position: absolute;
+  bottom: 2em;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 110;
+  width: auto;
+  padding: 12px 24px;
+  background-color: rgba(28, 28, 30, 0.8); /* Dark, semi-transparent */
+  border: 1px solid rgba(80, 80, 80, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.close-map-button:hover {
+  background-color: #218838;
+}
+
+.recenter-button {
+  position: absolute;
+  top: 1.5em; /* Moved higher */
+  right: 1.5em;
+  z-index: 110;
+  width: auto;
+  padding: 10px 18px;
+  background-color: rgba(28, 28, 30, 0.8) !important;
+  border: 1px solid rgba(80, 80, 80, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+/* New Icon Button Styles */
+.icon-button {
+  position: absolute;
+  z-index: 110;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.icon-button svg {
+  stroke: white;
+}
+
+.map-button {
+  position: relative; /* Change from absolute */
+  bottom: auto; /* Reset positioning */
+  right: auto;
+  margin: 0 auto 1em auto; /* Center horizontally, add bottom margin */
+}
+
+/* Map Preview Styles */
+.map-preview-container {
+  margin-bottom: 1.5em;
+}
+
+.start-button-container {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.start-button-container.post-run {
+  flex-grow: 0;
+  padding-top: 1.5em;
+  margin-bottom: 1em; /* Space below the button */
+}
+
+/* Remove rectangular style, all start buttons are circular now */
+button.start-run-button.rectangular {
+  display: none; /* Hide the old button */
+}
+
+.bottom-content > .start-run-button {
+  width: 100px;
+  height: 100px;
+  font-size: 1.4em;
+  margin-bottom: 1em;
+}
+
+/* New styles for scrollable summary */
+.post-run-summary {
+  flex-grow: 1;
+  overflow-y: auto; /* Enable vertical scrolling */
+  padding: 1em 0;
+  display: flex;
+  flex-direction: column;
+}
+
+button.start-run-button.post-run-button {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  font-size: 1.2em;
+  padding: 16px 0;
+  box-shadow: none;
+  margin-top: 1.5em; /* Space above the button */
+} 
