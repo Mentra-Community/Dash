@@ -5,7 +5,7 @@ namespace: ${PORTER_NAMESPACE}
 build:
   method: docker
   context: .
-  dockerfile: ./docker/Dockerfile
+  dockerfile: ./Dockerfile
 
 services:
   - name: dash
