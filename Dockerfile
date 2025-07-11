@@ -10,7 +10,7 @@ RUN bun install
 
 # Copy the application code
 COPY . .
-
+RUN bun run build
 RUN cd webview && bun install && bun run build 
 
 # Expose the port
