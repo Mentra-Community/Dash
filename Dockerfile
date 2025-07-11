@@ -8,10 +8,10 @@ COPY package.json bun.lock* ./
 # Install dependencies (including dev dependencies for build)
 RUN bun install
 
-RUN cd webview && bun install && bun run build 
-
 # Copy the application code
 COPY . .
+
+RUN cd webview && bun install && bun run build 
 
 # Expose the port
 EXPOSE 80
