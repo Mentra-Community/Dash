@@ -383,12 +383,21 @@ class Run {
 
         // Only do pace and distance calculations if not paused and warmed up
         if (!this.isPaused && !this.isWarmingUp) {
-            // --- Rolling Pace Calculation (logic is correct) ---
+            // --- Rolling Pace Calculation ---
             const windowStartTime = currentTime - this.ROLLING_WINDOW_MS;
             const currentWindow = this.fullLocationHistory.filter(p => p.timestamp >= windowStartTime);
-            
-            const { distance, time } = this.getDistanceOfPath(currentWindow, true);
-            this.rollingPace = (distance > 0 && time > 0) ? ((time / 60000) / distance) : 0;
+
+            if (currentWindow.length > 1) {
+                const { distance: windowDistance } = this.getDistanceOfPath(currentWindow);
+                const windowDurationMs = currentWindow[currentWindow.length - 1].timestamp - currentWindow[0].timestamp;
+                const windowDurationMinutes = windowDurationMs / 60000;
+
+                this.rollingPace = (windowDistance > 0 && windowDurationMinutes > 0) 
+                    ? (windowDurationMinutes / windowDistance) 
+                    : 0;
+            } else {
+                this.rollingPace = 0;
+            }
 
             // --- Update Totals ---
             if (distanceDelta > this.MIN_MOVEMENT_MI) {
@@ -399,12 +408,10 @@ class Run {
 
     /**
      * A helper function to calculate the total distance and moving time of a given path of GPS points.
-     * It can optionally filter out pause gaps for calculating a rolling pace.
      * @param path - An array of location points.
-     * @param forRollingPace - If true, ignores segments longer than the pause threshold.
      * @returns An object containing the calculated distance and time.
      */
-    private getDistanceOfPath(path: Array<{ lat: number; lng: number; timestamp: number }>, forRollingPace: boolean = false): { distance: number, time: number } {
+    private getDistanceOfPath(path: Array<{ lat: number; lng: number; timestamp: number }>): { distance: number, time: number } {
         let totalDistance = 0;
         let totalTime = 0;
 
@@ -413,13 +420,10 @@ class Run {
             const p2 = path[i];
             if (p1 && p2) {
                 const timeDeltaSegment = p2.timestamp - p1.timestamp;
-                // For rolling pace, we filter out pauses. For total distance, we don't need to.
-                if (!forRollingPace || timeDeltaSegment < this.PAUSE_THRESHOLD_MS) {
-                    const distanceSegment = calculateDistance(p1.lat, p1.lng, p2.lat, p2.lng);
-                    if (distanceSegment > this.MIN_MOVEMENT_MI) {
-                        totalDistance += distanceSegment;
-                        totalTime += timeDeltaSegment;
-                    }
+                const distanceSegment = calculateDistance(p1.lat, p1.lng, p2.lat, p2.lng);
+                if (distanceSegment > this.MIN_MOVEMENT_MI) {
+                    totalDistance += distanceSegment;
+                    totalTime += timeDeltaSegment;
                 }
             }
         }
