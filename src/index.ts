@@ -129,7 +129,7 @@ class Run {
     /** The duration of the rolling window for pace calculation (e.g., 2 minutes). */
     private readonly ROLLING_WINDOW_MS = 120000;
     /** The time the user must be stationary before a pause is triggered. */
-    private readonly PAUSE_THRESHOLD_MS = 5000;
+    private readonly PAUSE_THRESHOLD_MS = Number.MAX_SAFE_INTEGER;
     /** The duration after which a warning is logged if no GPS data is received. */
     private readonly LOCATION_TIMEOUT_MS = 10000; 
     /** The minimum speed in MPH to be considered "moving". */
