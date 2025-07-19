@@ -200,7 +200,7 @@ function App() {
       <div className="bottom-content">
         {runStatus !== 'running' && !finalStats && (
           <p className="read-the-docs" style={{ padding: '0 2em', textAlign: 'center', marginBottom: '1em' }}>
-            Keep MentraOS open if using Dash on iPhone. Fixing in next release
+            Keep Mentra open if using Dash on iPhone. Fixing in next release
           </p>
         )}
         {error && <p className="error">Error: {error}</p>}
