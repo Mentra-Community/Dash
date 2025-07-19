@@ -570,7 +570,7 @@ class MyMentraApp extends AppServer {
 
         session.layouts.showTextWall(
             'Dash\n\n' +
-            'Open Dash on your phone to start/end your run. MentraOS must remain open if using Dash on iPhone (fixing in next release)',
+            'Open Dash on your phone to start/end your run.\n\nMentra must stay open if using Dash on iPhone (fixing in next release)',
             { view: ViewType.MAIN }
         );
 
