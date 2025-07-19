@@ -167,6 +167,9 @@ function App() {
       {runStatus !== 'running' && !finalStats && (
         <div className="start-button-container">
           <button onClick={handleStartRun} className="start-run-button">START</button>
+          <p className="read-the-docs" style={{ marginTop: '1.5em', padding: '0 2em', textAlign: 'center' }}>
+            Keep MentraOS open if using Dash on iPhone. Fixing in next release
+          </p>
         </div>
       )}
       
