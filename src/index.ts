@@ -88,10 +88,6 @@ function formatAlignedText(lines: [string, string][], indent: number = 4): strin
  * and process location updates for the run.
  */
 class Run {
-    // --- Run Configuration ---
-    /** The type of activity for the current session. Determines how stats are calculated and displayed. */
-    public activityType: 'running' | 'cycling' | null = null;
-
     // --- Session State ---
     /** The last known GPS location of the user. Used to calculate distance deltas. */
     public lastLocation: { lat: number; lng: number; timestamp: number } | null = null;
@@ -157,6 +153,8 @@ class Run {
 
     /** The current status of the run, controlled by the webview. */
     public runStatus: 'stopped' | 'running' = 'stopped';
+    /** The type of activity being performed. */
+    public activityType: 'running' | 'cycling' | null = null;
 
     /** The TPA session object, used to send data back to the glasses. */
     private session: AppSession;
@@ -169,7 +167,6 @@ class Run {
      * Resets all state variables to their initial values and starts the timers
      * for the glasses display and location timeout checks. It also contains the
      * "UI Test Mode" block for rapidly testing display alignment.
-     * @param activityType - The type of activity ('running' or 'cycling').
      */
     public start(activityType: 'running' | 'cycling') {
         if (this.runStatus === 'running') {
@@ -230,21 +227,18 @@ class Run {
                 const movingTime = this.getMovingTime();
                 const displayTime = `${Math.floor(movingTime / 1000 / 60)}:${Math.floor((movingTime / 1000) % 60).toString().padStart(2, '0')}`;
                 
-                let paceOrSpeedLabel: string;
-                let paceOrSpeedValue: string;
+                let primaryMetricLabel = 'Pace              ';
+                let primaryMetricValue = this.rollingPace > 0 ? formatPace(this.rollingPace) : '--:-- /mi';
 
                 if (this.activityType === 'cycling') {
-                    paceOrSpeedLabel = 'Speed             ';
-                    const speedMph = this.rollingPace > 0 ? (60 / this.rollingPace).toFixed(1) : '0.0';
-                    paceOrSpeedValue = `${speedMph} mph`;
-                } else { // Default to running
-                    paceOrSpeedLabel = 'Pace              ';
-                    paceOrSpeedValue = this.rollingPace > 0 ? formatPace(this.rollingPace) : '--:-- /mi';
+                    const speedMph = this.rollingPace > 0 ? 60 / this.rollingPace : 0;
+                    primaryMetricLabel = 'Speed             '; // Keep padding consistent
+                    primaryMetricValue = `${speedMph.toFixed(1)} mph`;
                 }
 
                 const mainStatsLines: [string, string][] = [
                     ['Distance         ', `${this.totalDistance.toFixed(2)} mi`],
-                    [paceOrSpeedLabel, paceOrSpeedValue],
+                    [primaryMetricLabel, primaryMetricValue],
                     ['Moving Time    ', displayTime]
                 ];
                 displayText = '\n' + formatAlignedText(mainStatsLines, 26);
@@ -285,26 +279,15 @@ class Run {
             // Show final summary on glasses using the definitive stats
             const movingTime = this.getMovingTime();
             const displayTime = `${Math.floor(movingTime / 1000 / 60)}:${Math.floor((movingTime / 1000) % 60).toString().padStart(2, '0')}`;
-            
-            let avgPaceOrSpeedLabel: string;
-            let avgPaceOrSpeedValue: string;
-
-            if (this.activityType === 'cycling') {
-                avgPaceOrSpeedLabel = 'Avg Speed      ';
-                const avgSpeedMph = finalStats.averagePace > 0 ? (60 / finalStats.averagePace).toFixed(1) : '0.0';
-                avgPaceOrSpeedValue = `${avgSpeedMph} mph`;
-            } else {
-                avgPaceOrSpeedLabel = 'Avg Pace       ';
-                avgPaceOrSpeedValue = finalStats.averagePace > 0 ? formatPace(finalStats.averagePace) : '--:-- /mi';
-            }
+            const paceDisplay = (pace: number) => (pace > 0 ? formatPace(pace) : '--:-- /mi');
 
             const finalStatsLines: [string, string][] = [
-                [avgPaceOrSpeedLabel, avgPaceOrSpeedValue],
+                ['Avg Pace       ', paceDisplay(finalStats.averagePace)],
                 ['Distance         ', `${finalStats.totalDistance.toFixed(2)} mi`],
                 ['Moving Time   ', displayTime]
             ];
 
-            const summaryText = '                             Activity Complete!\n\n' + formatAlignedText(finalStatsLines, 20);
+            const summaryText = '                             Run Complete!\n\n' + formatAlignedText(finalStatsLines, 20);
 
             this.session.layouts.showTextWall(
                 summaryText,
@@ -561,12 +544,12 @@ class MyMentraApp extends AppServer {
             const run = (req as any).run as Run;
             const { activityType } = req.body;
 
-            if (!activityType || (activityType !== 'running' && activityType !== 'cycling')) {
-                return res.status(400).json({ error: 'A valid activityType ("running" or "cycling") is required.' });
+            if (activityType !== 'running' && activityType !== 'cycling') {
+                return res.status(400).json({ error: 'Invalid activityType provided.' });
             }
 
             run.start(activityType);
-            res.status(200).json({ message: 'Activity started successfully.' });
+            res.status(200).json({ message: 'Run started successfully.' });
         });
 
         app.post('/api/run/stop', getRunMiddleware, (req: Request, res: Response) => {
@@ -604,7 +587,7 @@ class MyMentraApp extends AppServer {
 
         session.layouts.showTextWall(
             'Dash\n\n' +
-            'Open Dash on your phone to choose an activity and start your session.',
+            'Open Dash on your phone to start/end your run.\n\nMentraOS must stay open if using Dash on iPhone (fixing soon)',
             { view: ViewType.MAIN }
         );
 

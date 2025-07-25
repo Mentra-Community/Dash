@@ -13,14 +13,14 @@ interface RunStats {
   runStatus: 'running' | 'stopped';
   rollingPace: number;
   isValidActivity: boolean;
-  locationHistory: Array<{ lat: number; lng: number }>;
   activityType: 'running' | 'cycling' | null;
+  locationHistory: Array<{ lat: number; lng: number }>;
 }
 
 function App() {
   const { userId, frontendToken, isAuthenticated, isLoading } = useAugmentosAuth();
-  const [activityType, setActivityType] = useState<'running' | 'cycling' | null>(null);
   const [runStatus, setRunStatus] = useState<'stopped' | 'running' | 'loading'>('loading');
+  const [activityType, setActivityType] = useState<'running' | 'cycling' | null>(null);
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
   const [locationHistory, setLocationHistory] = useState<Array<{ lat: number; lng: number }>>([]);
   const [isMapVisible, setMapVisible] = useState(false);
@@ -93,10 +93,7 @@ function App() {
         .then((data) => {
           setRunStatus(data.runStatus);
           setLocationHistory(data.locationHistory);
-          // If a run is already in progress, adopt its activity type
-          if (data.runStatus === 'running') {
-            setActivityType(data.activityType);
-          }
+          setActivityType(data.activityType); // Sync activity type
         })
         .catch((err: any) => setError(err.message || 'Could not connect to the run tracker.'));
       
@@ -112,9 +109,9 @@ function App() {
     setMapVisible(false);
     setMapCentered(true);
     try {
-      await apiRequest('/run/start', { 
+      await apiRequest('/run/start', {
         method: 'POST',
-        body: JSON.stringify({ activityType })
+        body: JSON.stringify({ activityType }),
       });
       setRunStatus('running');
     } catch (err: any) {
@@ -158,7 +155,7 @@ function App() {
           </button>
         )}
         <button className="close-map-button" onClick={() => setMapVisible(false)}>
-          Hide Map
+          {runStatus === 'running' ? 'Hide Map' : 'Hide Map'}
         </button>
       </div>
     );
@@ -175,24 +172,32 @@ function App() {
 
       {runStatus === 'running' && (
         <div className="in-progress-container">
-          <p>Activity in progress on your glasses...</p>
+          <p>Run in progress on your glasses...</p>
           <div className="pulsing-dot"></div>
         </div>
       )}
 
-      {runStatus !== 'running' && !finalStats && !activityType && (
+      {runStatus === 'stopped' && !finalStats && (
         <div className="start-button-container">
-          <div className="activity-selector">
-            <h2>Select Activity</h2>
-            <button onClick={() => setActivityType('running')} className="activity-button">Running</button>
-            <button onClick={() => setActivityType('cycling')} className="activity-button">Cycling</button>
-          </div>
-        </div>
-      )}
-
-      {runStatus !== 'running' && !finalStats && activityType && (
-        <div className="start-button-container">
-          <button onClick={handleStartRun} className="start-run-button">START</button>
+          {!activityType ? (
+            <div className="activity-selector">
+              <h2 className="activity-title">Select Activity</h2>
+              <button onClick={() => setActivityType('running')} className="activity-select-button">
+                Running
+              </button>
+              <button onClick={() => setActivityType('cycling')} className="activity-select-button">
+                Cycling
+              </button>
+            </div>
+          ) : (
+            <div className="start-confirmation">
+              <p className="ready-text">Ready to {activityType === 'running' ? 'Run' : 'Ride'}?</p>
+              <button onClick={handleStartRun} className="start-run-button">START</button>
+              <button onClick={() => setActivityType(null)} className="change-activity-button">
+                Change Activity
+              </button>
+            </div>
+          )}
         </div>
       )}
       
@@ -202,28 +207,29 @@ function App() {
             <>
               <MapPreview path={locationHistory} onClick={() => setMapVisible(true)} />
               <div className="stats-container">
-                <h2>Activity Complete!</h2>
+                <h2>{finalStats.activityType === 'running' ? 'Run' : 'Ride'} Complete!</h2>
                 <div className="stat"><strong>Distance:</strong> <span className="value">{finalStats.totalDistance.toFixed(2)} mi</span></div>
                 <div className="stat"><strong>Moving Time:</strong> <span className="value">{formatTime(finalStats.activeTime)}</span></div>
-                <div className="stat">
-                  <strong>{finalStats.activityType === 'cycling' ? 'Average Speed:' : 'Average Pace:'}</strong> 
-                  <span className="value">
-                    {finalStats.activityType === 'cycling' 
-                      ? formatSpeed(finalStats.averagePace) 
-                      : formatPace(finalStats.averagePace)}
-                  </span>
-                </div>
+                {finalStats.activityType === 'running' ? (
+                  <div className="stat">
+                    <strong>Average Pace:</strong> <span className="value">{formatPace(finalStats.averagePace)}</span>
+                  </div>
+                ) : (
+                  <div className="stat">
+                    <strong>Average Speed:</strong> <span className="value">{formatSpeed(finalStats.averagePace)}</span>
+                  </div>
+                )}
               </div>
               <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button post-run-button">
-                New Activity
+                NEW ACTIVITY
               </button>
             </>
           ) : (
             <div className="in-progress-container">
               <h2>Activity too short</h2>
-              <p>Go longer to gather more data</p>
+              <p>Run longer to gather more data</p>
               <div className="start-button-container post-run">
-                 <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button">New Activity</button>
+                 <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button">START NEW ACTIVITY</button>
               </div>
             </div>
           )}
