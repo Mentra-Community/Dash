@@ -14,10 +14,12 @@ interface RunStats {
   rollingPace: number;
   isValidActivity: boolean;
   locationHistory: Array<{ lat: number; lng: number }>;
+  activityType: 'running' | 'cycling' | null;
 }
 
 function App() {
   const { userId, frontendToken, isAuthenticated, isLoading } = useAugmentosAuth();
+  const [activityType, setActivityType] = useState<'running' | 'cycling' | null>(null);
   const [runStatus, setRunStatus] = useState<'stopped' | 'running' | 'loading'>('loading');
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
   const [locationHistory, setLocationHistory] = useState<Array<{ lat: number; lng: number }>>([]);
@@ -39,6 +41,13 @@ function App() {
     const minutes = Math.floor(pace);
     const seconds = Math.round((pace - minutes) * 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')} /mi`;
+  };
+
+  // Helper to format speed from pace (min/mi) to MPH
+  const formatSpeed = (pace: number) => {
+    if (pace === 0) return '0.0 mph';
+    const mph = 60 / pace;
+    return `${mph.toFixed(1)} mph`;
   };
 
   // Function to make authenticated API requests
@@ -84,6 +93,10 @@ function App() {
         .then((data) => {
           setRunStatus(data.runStatus);
           setLocationHistory(data.locationHistory);
+          // If a run is already in progress, adopt its activity type
+          if (data.runStatus === 'running') {
+            setActivityType(data.activityType);
+          }
         })
         .catch((err: any) => setError(err.message || 'Could not connect to the run tracker.'));
       
@@ -99,7 +112,10 @@ function App() {
     setMapVisible(false);
     setMapCentered(true);
     try {
-      await apiRequest('/run/start', { method: 'POST' });
+      await apiRequest('/run/start', { 
+        method: 'POST',
+        body: JSON.stringify({ activityType })
+      });
       setRunStatus('running');
     } catch (err: any) {
       setError(err.message);
@@ -142,7 +158,7 @@ function App() {
           </button>
         )}
         <button className="close-map-button" onClick={() => setMapVisible(false)}>
-          {runStatus === 'running' ? 'Hide Map' : 'Hide Map'}
+          Hide Map
         </button>
       </div>
     );
@@ -159,12 +175,22 @@ function App() {
 
       {runStatus === 'running' && (
         <div className="in-progress-container">
-          <p>Run in progress on your glasses...</p>
+          <p>Activity in progress on your glasses...</p>
           <div className="pulsing-dot"></div>
         </div>
       )}
 
-      {runStatus !== 'running' && !finalStats && (
+      {runStatus !== 'running' && !finalStats && !activityType && (
+        <div className="start-button-container">
+          <div className="activity-selector">
+            <h2>Select Activity</h2>
+            <button onClick={() => setActivityType('running')} className="activity-button">Running</button>
+            <button onClick={() => setActivityType('cycling')} className="activity-button">Cycling</button>
+          </div>
+        </div>
+      )}
+
+      {runStatus !== 'running' && !finalStats && activityType && (
         <div className="start-button-container">
           <button onClick={handleStartRun} className="start-run-button">START</button>
         </div>
@@ -176,21 +202,28 @@ function App() {
             <>
               <MapPreview path={locationHistory} onClick={() => setMapVisible(true)} />
               <div className="stats-container">
-                <h2>Run Complete!</h2>
+                <h2>Activity Complete!</h2>
                 <div className="stat"><strong>Distance:</strong> <span className="value">{finalStats.totalDistance.toFixed(2)} mi</span></div>
                 <div className="stat"><strong>Moving Time:</strong> <span className="value">{formatTime(finalStats.activeTime)}</span></div>
                 <div className="stat">
-                  <strong>Average Pace:</strong> <span className="value">{formatPace(finalStats.averagePace)}</span>
+                  <strong>{finalStats.activityType === 'cycling' ? 'Average Speed:' : 'Average Pace:'}</strong> 
+                  <span className="value">
+                    {finalStats.activityType === 'cycling' 
+                      ? formatSpeed(finalStats.averagePace) 
+                      : formatPace(finalStats.averagePace)}
+                  </span>
                 </div>
               </div>
-              <button onClick={handleStartRun} className="start-run-button post-run-button">START NEW RUN</button>
+              <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button post-run-button">
+                New Activity
+              </button>
             </>
           ) : (
             <div className="in-progress-container">
               <h2>Activity too short</h2>
-              <p>Run longer to gather more data</p>
+              <p>Go longer to gather more data</p>
               <div className="start-button-container post-run">
-                 <button onClick={handleStartRun} className="start-run-button">START</button>
+                 <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button">New Activity</button>
               </div>
             </div>
           )}
