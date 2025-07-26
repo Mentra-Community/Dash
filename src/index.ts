@@ -38,7 +38,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
  * @param paceInMinutes - The pace in decimal minutes (e.g., 10.5 for 10:30).
  * @returns A formatted string like "10:30 /mi".
  */
-function formatPace(paceInMinutes: number): string {
+function formatPace(paceInMinutes: number, unit: '/mi' | '/km' = '/mi'): string {
     let minutes = Math.floor(paceInMinutes);
     let seconds = Math.round((paceInMinutes - minutes) * 60);
 
@@ -48,7 +48,7 @@ function formatPace(paceInMinutes: number): string {
         seconds = 0;
     }
 
-    return `${minutes}:${seconds.toString().padStart(2, '0')} /mi`;
+    return `${minutes}:${seconds.toString().padStart(2, '0')} ${unit}`;
 }
 
 /**
@@ -145,6 +145,10 @@ class Run {
     /** An accumulator for continuous movement time, used only during warm-up. */
     public continuousMovementTime: number = 0;
 
+    // --- Unit System State ---
+    /** The unit system currently in use, derived from MentraOS settings. */
+    public unitSystem: 'imperial' | 'metric' = 'imperial';
+
     // --- Minimum Activity Thresholds ---
     /** The minimum time a run must last to be considered a valid activity. */
     private readonly MIN_ACTIVITY_TIME_MS = 25000;
@@ -153,6 +157,8 @@ class Run {
 
     /** The current status of the run, controlled by the webview. */
     public runStatus: 'stopped' | 'running' = 'stopped';
+    /** The type of activity being performed. */
+    public activityType: 'running' | 'cycling' | null = null;
 
     /** The TPA session object, used to send data back to the glasses. */
     private session: AppSession;
@@ -166,13 +172,14 @@ class Run {
      * for the glasses display and location timeout checks. It also contains the
      * "UI Test Mode" block for rapidly testing display alignment.
      */
-    public start() {
+    public start(activityType: 'running' | 'cycling') {
         if (this.runStatus === 'running') {
             console.log('Run is already in progress.');
             return;
         }
-        console.log('Starting a new run...');
+        console.log(`Starting a new ${activityType} session...`);
         this.runStatus = 'running';
+        this.activityType = activityType;
 
         // Reset all session state
         this.lastLocation = null;
@@ -212,9 +219,9 @@ class Run {
             if (this.isWarmingUp) {
                 // During initial warm-up, only show "Start moving" message
                 if (this.lastLocation === null) {
-                    displayText = '\n\n\nStart moving to begin your run.';
+                    displayText = '\n\n\nStart moving to begin your activity.';
                 } else {
-                    displayText = '\n\n\nStart moving to begin your run.';
+                    displayText = '\n\n\nStart moving to begin your activity.';
                 }
             } else if (this.isPaused) {
                 // If paused after warm-up, show the paused message
@@ -224,11 +231,37 @@ class Run {
                 const movingTime = this.getMovingTime();
                 const displayTime = `${Math.floor(movingTime / 1000 / 60)}:${Math.floor((movingTime / 1000) % 60).toString().padStart(2, '0')}`;
                 
-                const paceDisplay = this.rollingPace > 0 ? formatPace(this.rollingPace) : '--:-- /mi';
+                // Always calculate in imperial, then convert for display
+                const distanceMi = this.totalDistance;
+                const paceMinPerMi = this.rollingPace;
 
-            const mainStatsLines: [string, string][] = [
-                ['Distance         ', `${this.totalDistance.toFixed(2)} mi`],
-                    ['Pace              ', paceDisplay],
+                let displayDistance = distanceMi;
+                let displayPace = paceMinPerMi;
+                let displaySpeed = paceMinPerMi > 0 ? 60 / paceMinPerMi : 0;
+                let distanceUnit = 'mi';
+                let paceUnit: '/mi' | '/km' = '/mi';
+                let speedUnit = 'mph';
+
+                if (this.unitSystem === 'metric') {
+                    displayDistance = distanceMi * 1.60934;
+                    displayPace = paceMinPerMi / 1.60934;
+                    displaySpeed = displaySpeed * 1.60934;
+                    distanceUnit = 'km';
+                    paceUnit = '/km';
+                    speedUnit = 'kph';
+                }
+
+                let primaryMetricLabel = 'Pace              ';
+                let primaryMetricValue = displayPace > 0 ? formatPace(displayPace, paceUnit) : `--:-- ${paceUnit}`;
+
+                if (this.activityType === 'cycling') {
+                    primaryMetricLabel = 'Speed             '; // Keep padding consistent
+                    primaryMetricValue = `${displaySpeed.toFixed(1)} ${speedUnit}`;
+                }
+
+                const mainStatsLines: [string, string][] = [
+                    ['Distance         ', `${displayDistance.toFixed(2)} ${distanceUnit}`],
+                    [primaryMetricLabel, primaryMetricValue],
                     ['Moving Time    ', displayTime]
                 ];
                 displayText = '\n' + formatAlignedText(mainStatsLines, 26);
@@ -262,22 +295,59 @@ class Run {
         if (!finalStats.isValidActivity) {
             // Show "too short" message on glasses
             this.session.layouts.showTextWall(
-                '\n\n\nActivity too short. Run longer to gather more data',
+                '\n\n\nActivity too short. Must be longer to gather more data',
                 { view: ViewType.MAIN }
             );
         } else {
             // Show final summary on glasses using the definitive stats
             const movingTime = this.getMovingTime();
             const displayTime = `${Math.floor(movingTime / 1000 / 60)}:${Math.floor((movingTime / 1000) % 60).toString().padStart(2, '0')}`;
-            const paceDisplay = (pace: number) => (pace > 0 ? formatPace(pace) : '--:-- /mi');
+            
+            const distanceMi = finalStats.totalDistance;
+            const paceMinPerMi = finalStats.averagePace;
+
+            let displayDistance = distanceMi;
+            let displayPace = paceMinPerMi;
+            let displaySpeed = paceMinPerMi > 0 ? 60 / paceMinPerMi : 0;
+            let distanceUnit = 'mi';
+            let paceUnit: '/mi' | '/km' = '/mi';
+            let speedUnit = 'mph';
+
+            if (this.unitSystem === 'metric') {
+                displayDistance = distanceMi * 1.60934;
+                displayPace = paceMinPerMi / 1.60934;
+                displaySpeed = displaySpeed * 1.60934;
+                distanceUnit = 'km';
+                paceUnit = '/km';
+                speedUnit = 'kph';
+            }
+
+            let primaryMetricLabel = 'Avg Pace       ';
+            let primaryMetricValue = displayPace > 0 ? formatPace(displayPace, paceUnit) : `--:-- ${paceUnit}`;
+
+            if (this.activityType === 'cycling') {
+                primaryMetricLabel = 'Avg Speed      '; // Padded to match
+                primaryMetricValue = `${displaySpeed.toFixed(1)} ${speedUnit}`;
+            }
 
             const finalStatsLines: [string, string][] = [
-                ['Avg Pace       ', paceDisplay(finalStats.averagePace)],
-                ['Distance         ', `${finalStats.totalDistance.toFixed(2)} mi`],
+                [primaryMetricLabel, primaryMetricValue],
+                ['Distance         ', `${displayDistance.toFixed(2)} ${distanceUnit}`],
                 ['Moving Time   ', displayTime]
             ];
 
-            const summaryText = '                             Run Complete!\n\n' + formatAlignedText(finalStatsLines, 20);
+            let summaryTitle: string;
+            let titlePadding: string;
+
+            if (this.activityType === 'cycling') {
+                summaryTitle = 'Ride Complete!';
+                titlePadding = '                           '; // 27 spaces for alignment
+            } else {
+                summaryTitle = 'Run Complete!';
+                titlePadding = '                             '; // 29 spaces for alignment
+            }
+            
+            const summaryText = `${titlePadding}${summaryTitle}\n\n` + formatAlignedText(finalStatsLines, 20);
 
             this.session.layouts.showTextWall(
                 summaryText,
@@ -470,6 +540,8 @@ class Run {
             rollingPace: this.rollingPace,
             isValidActivity: meetsMinimumThresholds,
             locationHistory: this.fullLocationHistory,
+            activityType: this.activityType,
+            unitSystem: this.unitSystem,
         };
     }
 }
@@ -482,6 +554,8 @@ class Run {
 class MyMentraApp extends AppServer {
     /** A map to store the active `Run` instance for each session ID. */
     private activeRuns = new Map<string, Run>(); 
+    /** A map to store settings listener cleanup functions for each session. */
+    private sessionCleanups = new Map<string, () => void>();
     /** A map to look up a user's current session ID. */
     private userIdToSessionId = new Map<string, string>(); 
     /** A map to look up a session's user ID. */
@@ -531,7 +605,13 @@ class MyMentraApp extends AppServer {
 
         app.post('/api/run/start', getRunMiddleware, (req: Request, res: Response) => {
             const run = (req as any).run as Run;
-            run.start();
+            const { activityType } = req.body;
+
+            if (activityType !== 'running' && activityType !== 'cycling') {
+                return res.status(400).json({ error: 'Invalid activityType provided.' });
+            }
+
+            run.start(activityType);
             res.status(200).json({ message: 'Run started successfully.' });
         });
 
@@ -560,6 +640,11 @@ class MyMentraApp extends AppServer {
         if (oldSessionId) {
             this.activeRuns.delete(oldSessionId);
             this.sessionIdToUserId.delete(oldSessionId);
+            const cleanup = this.sessionCleanups.get(oldSessionId);
+            if (cleanup) {
+                cleanup();
+                this.sessionCleanups.delete(oldSessionId);
+            }
         }
 
         // Set up new session
@@ -567,6 +652,24 @@ class MyMentraApp extends AppServer {
         this.activeRuns.set(sessionId, run);
         this.userIdToSessionId.set(userId, sessionId);
         this.sessionIdToUserId.set(sessionId, userId);
+
+        // --- Unit System Settings ---
+        // 1. Get initial value from the app-specific setting
+        const isMetric = session.settings.get<boolean>('metricSystemEnabled', false);
+        run.unitSystem = isMetric ? 'metric' : 'imperial';
+        console.log(`Session ${sessionId} starting with unit system: ${run.unitSystem}`);
+        
+        // 2. Listen for changes to the app-specific setting
+        const cleanupListener = session.settings.onValueChange<boolean>(
+            'metricSystemEnabled',
+            (newValue) => {
+                console.log(`Unit system changed to: ${newValue ? 'metric' : 'imperial'}`);
+                run.unitSystem = newValue ? 'metric' : 'imperial';
+            }
+        );
+
+        // 3. Store the cleanup function
+        this.sessionCleanups.set(sessionId, cleanupListener);
 
         session.layouts.showTextWall(
             'Dash\n\n' +
@@ -641,6 +744,13 @@ class MyMentraApp extends AppServer {
         if (userId) {
             this.userIdToSessionId.delete(userId);
             this.sessionIdToUserId.delete(sessionId);
+        }
+        // Clean up the settings listener for the session
+        const cleanup = this.sessionCleanups.get(sessionId);
+        if (cleanup) {
+            cleanup();
+            this.sessionCleanups.delete(sessionId);
+            console.log(`Cleaned up settings listener for session ${sessionId}`);
         }
     }
 }

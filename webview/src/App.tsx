@@ -2,7 +2,7 @@ import { useAugmentosAuth } from '@augmentos/react';
 import { useState, useEffect } from 'react';
 import './App.css';
 import MapContainer from './MapContainer';
-import { MapIcon, RecenterIcon } from './Icons';
+import { MapIcon, RecenterIcon, BackArrowIcon } from './Icons';
 import MapPreview from './MapPreview';
 
 // Type definition for the run statistics
@@ -13,12 +13,15 @@ interface RunStats {
   runStatus: 'running' | 'stopped';
   rollingPace: number;
   isValidActivity: boolean;
+  activityType: 'running' | 'cycling' | null;
+  unitSystem: 'imperial' | 'metric';
   locationHistory: Array<{ lat: number; lng: number }>;
 }
 
 function App() {
   const { userId, frontendToken, isAuthenticated, isLoading } = useAugmentosAuth();
   const [runStatus, setRunStatus] = useState<'stopped' | 'running' | 'loading'>('loading');
+  const [activityType, setActivityType] = useState<'running' | 'cycling' | null>(null);
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
   const [locationHistory, setLocationHistory] = useState<Array<{ lat: number; lng: number }>>([]);
   const [isMapVisible, setMapVisible] = useState(false);
@@ -39,6 +42,13 @@ function App() {
     const minutes = Math.floor(pace);
     const seconds = Math.round((pace - minutes) * 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')} /mi`;
+  };
+
+  // Helper to format speed from pace (min/mi) to MPH
+  const formatSpeed = (pace: number) => {
+    if (pace === 0) return '0.0 mph';
+    const mph = 60 / pace;
+    return `${mph.toFixed(1)} mph`;
   };
 
   // Function to make authenticated API requests
@@ -84,6 +94,7 @@ function App() {
         .then((data) => {
           setRunStatus(data.runStatus);
           setLocationHistory(data.locationHistory);
+          setActivityType(data.activityType); // Sync activity type
         })
         .catch((err: any) => setError(err.message || 'Could not connect to the run tracker.'));
       
@@ -99,7 +110,10 @@ function App() {
     setMapVisible(false);
     setMapCentered(true);
     try {
-      await apiRequest('/run/start', { method: 'POST' });
+      await apiRequest('/run/start', {
+        method: 'POST',
+        body: JSON.stringify({ activityType }),
+      });
       setRunStatus('running');
     } catch (err: any) {
       setError(err.message);
@@ -159,14 +173,31 @@ function App() {
 
       {runStatus === 'running' && (
         <div className="in-progress-container">
-          <p>Run in progress on your glasses...</p>
+          <p>Activity in progress on your glasses...</p>
           <div className="pulsing-dot"></div>
         </div>
       )}
 
-      {runStatus !== 'running' && !finalStats && (
+      {runStatus === 'stopped' && !finalStats && (
         <div className="start-button-container">
-          <button onClick={handleStartRun} className="start-run-button">START</button>
+          {!activityType ? (
+            <div className="activity-selector">
+              <h2 className="activity-title">Select Activity</h2>
+              <div className="segmented-control">
+                <div className="control-option" onClick={() => setActivityType('running')}>
+                  <span role="img" aria-label="runner">🏃</span> Running
+                </div>
+                <div className="control-option" onClick={() => setActivityType('cycling')}>
+                  <span role="img" aria-label="cyclist">🚴</span> Cycling
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="start-confirmation">
+              <p className="ready-text">Ready to {activityType === 'running' ? 'Run' : 'Ride'}?</p>
+              <button onClick={handleStartRun} className="start-run-button">START</button>
+            </div>
+          )}
         </div>
       )}
       
@@ -176,21 +207,46 @@ function App() {
             <>
               <MapPreview path={locationHistory} onClick={() => setMapVisible(true)} />
               <div className="stats-container">
-                <h2>Run Complete!</h2>
-                <div className="stat"><strong>Distance:</strong> <span className="value">{finalStats.totalDistance.toFixed(2)} mi</span></div>
-                <div className="stat"><strong>Moving Time:</strong> <span className="value">{formatTime(finalStats.activeTime)}</span></div>
+                <h2>{finalStats.activityType === 'running' ? 'Run' : 'Ride'} Complete!</h2>
                 <div className="stat">
-                  <strong>Average Pace:</strong> <span className="value">{formatPace(finalStats.averagePace)}</span>
+                  <strong>Distance:</strong> 
+                  <span className="value">
+                    {finalStats.unitSystem === 'metric' 
+                      ? (finalStats.totalDistance * 1.60934).toFixed(2) + ' km' 
+                      : finalStats.totalDistance.toFixed(2) + ' mi'}
+                  </span>
                 </div>
+                <div className="stat"><strong>Moving Time:</strong> <span className="value">{formatTime(finalStats.activeTime)}</span></div>
+                {finalStats.activityType === 'running' ? (
+                  <div className="stat">
+                    <strong>Average Pace:</strong> 
+                    <span className="value">
+                      {finalStats.unitSystem === 'metric'
+                        ? formatPace(finalStats.averagePace / 1.60934).replace('/mi', '/km')
+                        : formatPace(finalStats.averagePace)}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="stat">
+                    <strong>Average Speed:</strong> 
+                    <span className="value">
+                      {finalStats.unitSystem === 'metric'
+                        ? formatSpeed(finalStats.averagePace / 1.60934).replace('mph', 'kph')
+                        : formatSpeed(finalStats.averagePace)}
+                    </span>
+                  </div>
+                )}
               </div>
-              <button onClick={handleStartRun} className="start-run-button post-run-button">START NEW RUN</button>
+              <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button post-run-button">
+                NEW ACTIVITY
+              </button>
             </>
           ) : (
             <div className="in-progress-container">
               <h2>Activity too short</h2>
               <p>Run longer to gather more data</p>
               <div className="start-button-container post-run">
-                 <button onClick={handleStartRun} className="start-run-button">START</button>
+                 <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button post-run-button-small">NEW ACTIVITY</button>
               </div>
             </div>
           )}
@@ -198,6 +254,11 @@ function App() {
       )}
 
       <div className="bottom-content">
+        {runStatus !== 'running' && !finalStats && activityType && (
+          <button onClick={() => setActivityType(null)} className="icon-button change-activity-button">
+            <BackArrowIcon />
+          </button>
+        )}
         {runStatus !== 'running' && !finalStats && (
           <p className="read-the-docs" style={{ padding: '0 2em', textAlign: 'center', marginBottom: '1em' }}>
             Keep Mentra open if using Dash on iPhone. Fixing in next release

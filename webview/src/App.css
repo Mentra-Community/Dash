@@ -267,7 +267,8 @@ span.value {
   flex-grow: 1;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start; /* Changed from center to move content up */
+  padding-top: 10vh; /* Push content down from the top */
 }
 
 .start-button-container.post-run {
@@ -305,4 +306,107 @@ button.start-run-button.post-run-button {
   padding: 16px 0;
   box-shadow: none;
   margin-top: 1.5em; /* Space above the button */
+} 
+
+/* This selector is now more specific to override the default circle style */
+button.start-run-button.post-run-button-small {
+  width: 120px; /* Larger circle */
+  height: 120px; /* Larger circle */
+  border-radius: 50%; /* Ensure it's a circle */
+  font-size: 1.2em;
+  line-height: 1.2; /* Help with text wrapping */
+  padding: 0 15px;
+  margin-top: 1.5em;
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+/* New styles for activity selection */
+.activity-selector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.activity-title {
+  color: #eaeaebeb;
+  font-weight: 600;
+  margin-bottom: 1.5em;
+  font-size: 1.8em;
+}
+
+.segmented-control {
+  display: flex;
+  width: 80%;
+  max-width: 320px;
+  border-radius: 12px;
+  background-color: #2c2c2e;
+  border: 1px solid #48484a;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.control-option {
+  flex: 1;
+  padding: 18px 0;
+  text-align: center;
+  font-size: 1.3em;
+  font-weight: 600;
+  color: #eaeaebeb;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.control-option:first-child {
+  border-right: 1px solid #48484a;
+}
+
+.control-option:hover {
+  background-color: #3a3a3c;
+}
+
+.control-option span {
+  margin-right: 0.5em;
+}
+
+.activity-select-button {
+  background-color: #2c2c2e;
+  border: 1px solid #48484a;
+  width: 80%;
+  max-width: 300px;
+  margin-bottom: 1em;
+  font-size: 1.4em;
+  padding: 20px 0;
+}
+
+.activity-select-button:hover {
+  background-color: #3a3a3c;
+  border-color: #6c6c6e;
+}
+
+.start-confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ready-text {
+  color: #8d8d92;
+  font-size: 1.4em;
+  margin-bottom: 1.5em;
+}
+
+.change-activity-button {
+  background: none;
+  border: none;
+  color: #8d8d92;
+  margin-top: 1.5em;
+  font-size: 1em;
+  font-family: inherit;
+  width: auto;
+  position: static; /* Override absolute positioning from .icon-button */
+  backdrop-filter: none;
+  border: 1px solid #48484a;
+  margin-bottom: 1em; /* Add margin to space it from the text below */
 } 
