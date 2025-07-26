@@ -215,9 +215,9 @@ class Run {
             if (this.isWarmingUp) {
                 // During initial warm-up, only show "Start moving" message
                 if (this.lastLocation === null) {
-                    displayText = '\n\n\nStart moving to begin your run.';
+                    displayText = '\n\n\nStart moving to begin your activity.';
                 } else {
-                    displayText = '\n\n\nStart moving to begin your run.';
+                    displayText = '\n\n\nStart moving to begin your activity.';
                 }
             } else if (this.isPaused) {
                 // If paused after warm-up, show the paused message
@@ -272,22 +272,41 @@ class Run {
         if (!finalStats.isValidActivity) {
             // Show "too short" message on glasses
             this.session.layouts.showTextWall(
-                '\n\n\nActivity too short. Run longer to gather more data',
+                '\n\n\nActivity too short. Must be longer to gather more data',
                 { view: ViewType.MAIN }
             );
         } else {
             // Show final summary on glasses using the definitive stats
             const movingTime = this.getMovingTime();
             const displayTime = `${Math.floor(movingTime / 1000 / 60)}:${Math.floor((movingTime / 1000) % 60).toString().padStart(2, '0')}`;
-            const paceDisplay = (pace: number) => (pace > 0 ? formatPace(pace) : '--:-- /mi');
+            
+            let primaryMetricLabel = 'Avg Pace       ';
+            let primaryMetricValue = finalStats.averagePace > 0 ? formatPace(finalStats.averagePace) : '--:-- /mi';
+
+            if (this.activityType === 'cycling') {
+                const avgSpeedMph = finalStats.averagePace > 0 ? (60 / finalStats.averagePace) : 0;
+                primaryMetricLabel = 'Avg Speed      '; // Padded to match
+                primaryMetricValue = `${avgSpeedMph.toFixed(1)} mph`;
+            }
 
             const finalStatsLines: [string, string][] = [
-                ['Avg Pace       ', paceDisplay(finalStats.averagePace)],
+                [primaryMetricLabel, primaryMetricValue],
                 ['Distance         ', `${finalStats.totalDistance.toFixed(2)} mi`],
                 ['Moving Time   ', displayTime]
             ];
 
-            const summaryText = '                             Run Complete!\n\n' + formatAlignedText(finalStatsLines, 20);
+            let summaryTitle: string;
+            let titlePadding: string;
+
+            if (this.activityType === 'cycling') {
+                summaryTitle = 'Ride Complete!';
+                titlePadding = '                           '; // 27 spaces for alignment
+            } else {
+                summaryTitle = 'Run Complete!';
+                titlePadding = '                             '; // 29 spaces for alignment
+            }
+            
+            const summaryText = `${titlePadding}${summaryTitle}\n\n` + formatAlignedText(finalStatsLines, 20);
 
             this.session.layouts.showTextWall(
                 summaryText,
@@ -587,7 +606,7 @@ class MyMentraApp extends AppServer {
 
         session.layouts.showTextWall(
             'Dash\n\n' +
-            'Open Dash on your phone to start/end your run.\n\nMentraOS must stay open if using Dash on iPhone (fixing soon)',
+            'Open Dash on your phone to start/end your activity.\n\nMentraOS must stay open if using Dash on iPhone (fixing soon)',
             { view: ViewType.MAIN }
         );
 

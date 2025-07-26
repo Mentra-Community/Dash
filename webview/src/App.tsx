@@ -172,7 +172,7 @@ function App() {
 
       {runStatus === 'running' && (
         <div className="in-progress-container">
-          <p>Run in progress on your glasses...</p>
+          <p>Activity in progress on your glasses...</p>
           <div className="pulsing-dot"></div>
         </div>
       )}
