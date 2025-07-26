@@ -38,7 +38,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
  * @param paceInMinutes - The pace in decimal minutes (e.g., 10.5 for 10:30).
  * @returns A formatted string like "10:30 /mi".
  */
-function formatPace(paceInMinutes: number): string {
+function formatPace(paceInMinutes: number, unit: '/mi' | '/km' = '/mi'): string {
     let minutes = Math.floor(paceInMinutes);
     let seconds = Math.round((paceInMinutes - minutes) * 60);
 
@@ -48,7 +48,7 @@ function formatPace(paceInMinutes: number): string {
         seconds = 0;
     }
 
-    return `${minutes}:${seconds.toString().padStart(2, '0')} /mi`;
+    return `${minutes}:${seconds.toString().padStart(2, '0')} ${unit}`;
 }
 
 /**
@@ -145,6 +145,10 @@ class Run {
     /** An accumulator for continuous movement time, used only during warm-up. */
     public continuousMovementTime: number = 0;
 
+    // --- Unit System State ---
+    /** The unit system currently in use, derived from MentraOS settings. */
+    public unitSystem: 'imperial' | 'metric' = 'imperial';
+
     // --- Minimum Activity Thresholds ---
     /** The minimum time a run must last to be considered a valid activity. */
     private readonly MIN_ACTIVITY_TIME_MS = 25000;
@@ -227,17 +231,36 @@ class Run {
                 const movingTime = this.getMovingTime();
                 const displayTime = `${Math.floor(movingTime / 1000 / 60)}:${Math.floor((movingTime / 1000) % 60).toString().padStart(2, '0')}`;
                 
+                // Always calculate in imperial, then convert for display
+                const distanceMi = this.totalDistance;
+                const paceMinPerMi = this.rollingPace;
+
+                let displayDistance = distanceMi;
+                let displayPace = paceMinPerMi;
+                let displaySpeed = paceMinPerMi > 0 ? 60 / paceMinPerMi : 0;
+                let distanceUnit = 'mi';
+                let paceUnit: '/mi' | '/km' = '/mi';
+                let speedUnit = 'mph';
+
+                if (this.unitSystem === 'metric') {
+                    displayDistance = distanceMi * 1.60934;
+                    displayPace = paceMinPerMi / 1.60934;
+                    displaySpeed = displaySpeed * 1.60934;
+                    distanceUnit = 'km';
+                    paceUnit = '/km';
+                    speedUnit = 'kph';
+                }
+
                 let primaryMetricLabel = 'Pace              ';
-                let primaryMetricValue = this.rollingPace > 0 ? formatPace(this.rollingPace) : '--:-- /mi';
+                let primaryMetricValue = displayPace > 0 ? formatPace(displayPace, paceUnit) : `--:-- ${paceUnit}`;
 
                 if (this.activityType === 'cycling') {
-                    const speedMph = this.rollingPace > 0 ? 60 / this.rollingPace : 0;
                     primaryMetricLabel = 'Speed             '; // Keep padding consistent
-                    primaryMetricValue = `${speedMph.toFixed(1)} mph`;
+                    primaryMetricValue = `${displaySpeed.toFixed(1)} ${speedUnit}`;
                 }
 
                 const mainStatsLines: [string, string][] = [
-                    ['Distance         ', `${this.totalDistance.toFixed(2)} mi`],
+                    ['Distance         ', `${displayDistance.toFixed(2)} ${distanceUnit}`],
                     [primaryMetricLabel, primaryMetricValue],
                     ['Moving Time    ', displayTime]
                 ];
@@ -280,18 +303,36 @@ class Run {
             const movingTime = this.getMovingTime();
             const displayTime = `${Math.floor(movingTime / 1000 / 60)}:${Math.floor((movingTime / 1000) % 60).toString().padStart(2, '0')}`;
             
+            const distanceMi = finalStats.totalDistance;
+            const paceMinPerMi = finalStats.averagePace;
+
+            let displayDistance = distanceMi;
+            let displayPace = paceMinPerMi;
+            let displaySpeed = paceMinPerMi > 0 ? 60 / paceMinPerMi : 0;
+            let distanceUnit = 'mi';
+            let paceUnit: '/mi' | '/km' = '/mi';
+            let speedUnit = 'mph';
+
+            if (this.unitSystem === 'metric') {
+                displayDistance = distanceMi * 1.60934;
+                displayPace = paceMinPerMi / 1.60934;
+                displaySpeed = displaySpeed * 1.60934;
+                distanceUnit = 'km';
+                paceUnit = '/km';
+                speedUnit = 'kph';
+            }
+
             let primaryMetricLabel = 'Avg Pace       ';
-            let primaryMetricValue = finalStats.averagePace > 0 ? formatPace(finalStats.averagePace) : '--:-- /mi';
+            let primaryMetricValue = displayPace > 0 ? formatPace(displayPace, paceUnit) : `--:-- ${paceUnit}`;
 
             if (this.activityType === 'cycling') {
-                const avgSpeedMph = finalStats.averagePace > 0 ? (60 / finalStats.averagePace) : 0;
                 primaryMetricLabel = 'Avg Speed      '; // Padded to match
-                primaryMetricValue = `${avgSpeedMph.toFixed(1)} mph`;
+                primaryMetricValue = `${displaySpeed.toFixed(1)} ${speedUnit}`;
             }
 
             const finalStatsLines: [string, string][] = [
                 [primaryMetricLabel, primaryMetricValue],
-                ['Distance         ', `${finalStats.totalDistance.toFixed(2)} mi`],
+                ['Distance         ', `${displayDistance.toFixed(2)} ${distanceUnit}`],
                 ['Moving Time   ', displayTime]
             ];
 
@@ -500,6 +541,7 @@ class Run {
             isValidActivity: meetsMinimumThresholds,
             locationHistory: this.fullLocationHistory,
             activityType: this.activityType,
+            unitSystem: this.unitSystem,
         };
     }
 }
@@ -512,6 +554,8 @@ class Run {
 class MyMentraApp extends AppServer {
     /** A map to store the active `Run` instance for each session ID. */
     private activeRuns = new Map<string, Run>(); 
+    /** A map to store settings listener cleanup functions for each session. */
+    private sessionCleanups = new Map<string, () => void>();
     /** A map to look up a user's current session ID. */
     private userIdToSessionId = new Map<string, string>(); 
     /** A map to look up a session's user ID. */
@@ -596,6 +640,11 @@ class MyMentraApp extends AppServer {
         if (oldSessionId) {
             this.activeRuns.delete(oldSessionId);
             this.sessionIdToUserId.delete(oldSessionId);
+            const cleanup = this.sessionCleanups.get(oldSessionId);
+            if (cleanup) {
+                cleanup();
+                this.sessionCleanups.delete(oldSessionId);
+            }
         }
 
         // Set up new session
@@ -604,9 +653,27 @@ class MyMentraApp extends AppServer {
         this.userIdToSessionId.set(userId, sessionId);
         this.sessionIdToUserId.set(sessionId, userId);
 
+        // --- Unit System Settings ---
+        // 1. Get initial value from the app-specific setting
+        const isMetric = session.settings.get<boolean>('metricSystemEnabled', false);
+        run.unitSystem = isMetric ? 'metric' : 'imperial';
+        console.log(`Session ${sessionId} starting with unit system: ${run.unitSystem}`);
+        
+        // 2. Listen for changes to the app-specific setting
+        const cleanupListener = session.settings.onValueChange<boolean>(
+            'metricSystemEnabled',
+            (newValue) => {
+                console.log(`Unit system changed to: ${newValue ? 'metric' : 'imperial'}`);
+                run.unitSystem = newValue ? 'metric' : 'imperial';
+            }
+        );
+
+        // 3. Store the cleanup function
+        this.sessionCleanups.set(sessionId, cleanupListener);
+
         session.layouts.showTextWall(
             'Dash\n\n' +
-            'Open Dash on your phone to start/end your activity.\n\nMentraOS must stay open if using Dash on iPhone (fixing soon)',
+            'Open Dash on your phone to start/end your run.\n\nMentraOS must stay open if using Dash on iPhone (fixing soon)',
             { view: ViewType.MAIN }
         );
 
@@ -677,6 +744,13 @@ class MyMentraApp extends AppServer {
         if (userId) {
             this.userIdToSessionId.delete(userId);
             this.sessionIdToUserId.delete(sessionId);
+        }
+        // Clean up the settings listener for the session
+        const cleanup = this.sessionCleanups.get(sessionId);
+        if (cleanup) {
+            cleanup();
+            this.sessionCleanups.delete(sessionId);
+            console.log(`Cleaned up settings listener for session ${sessionId}`);
         }
     }
 }

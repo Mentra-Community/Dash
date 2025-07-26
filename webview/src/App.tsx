@@ -14,6 +14,7 @@ interface RunStats {
   rollingPace: number;
   isValidActivity: boolean;
   activityType: 'running' | 'cycling' | null;
+  unitSystem: 'imperial' | 'metric';
   locationHistory: Array<{ lat: number; lng: number }>;
 }
 
@@ -207,15 +208,32 @@ function App() {
               <MapPreview path={locationHistory} onClick={() => setMapVisible(true)} />
               <div className="stats-container">
                 <h2>{finalStats.activityType === 'running' ? 'Run' : 'Ride'} Complete!</h2>
-                <div className="stat"><strong>Distance:</strong> <span className="value">{finalStats.totalDistance.toFixed(2)} mi</span></div>
+                <div className="stat">
+                  <strong>Distance:</strong> 
+                  <span className="value">
+                    {finalStats.unitSystem === 'metric' 
+                      ? (finalStats.totalDistance * 1.60934).toFixed(2) + ' km' 
+                      : finalStats.totalDistance.toFixed(2) + ' mi'}
+                  </span>
+                </div>
                 <div className="stat"><strong>Moving Time:</strong> <span className="value">{formatTime(finalStats.activeTime)}</span></div>
                 {finalStats.activityType === 'running' ? (
                   <div className="stat">
-                    <strong>Average Pace:</strong> <span className="value">{formatPace(finalStats.averagePace)}</span>
+                    <strong>Average Pace:</strong> 
+                    <span className="value">
+                      {finalStats.unitSystem === 'metric'
+                        ? formatPace(finalStats.averagePace / 1.60934).replace('/mi', '/km')
+                        : formatPace(finalStats.averagePace)}
+                    </span>
                   </div>
                 ) : (
                   <div className="stat">
-                    <strong>Average Speed:</strong> <span className="value">{formatSpeed(finalStats.averagePace)}</span>
+                    <strong>Average Speed:</strong> 
+                    <span className="value">
+                      {finalStats.unitSystem === 'metric'
+                        ? formatSpeed(finalStats.averagePace / 1.60934).replace('mph', 'kph')
+                        : formatSpeed(finalStats.averagePace)}
+                    </span>
                   </div>
                 )}
               </div>
