@@ -2,7 +2,7 @@ import { useAugmentosAuth } from '@augmentos/react';
 import { useState, useEffect } from 'react';
 import './App.css';
 import MapContainer from './MapContainer';
-import { MapIcon, RecenterIcon } from './Icons';
+import { MapIcon, RecenterIcon, BackArrowIcon } from './Icons';
 import MapPreview from './MapPreview';
 
 // Type definition for the run statistics
@@ -182,20 +182,19 @@ function App() {
           {!activityType ? (
             <div className="activity-selector">
               <h2 className="activity-title">Select Activity</h2>
-              <button onClick={() => setActivityType('running')} className="activity-select-button">
-                Running
-              </button>
-              <button onClick={() => setActivityType('cycling')} className="activity-select-button">
-                Cycling
-              </button>
+              <div className="segmented-control">
+                <div className="control-option" onClick={() => setActivityType('running')}>
+                  <span role="img" aria-label="runner">🏃</span> Running
+                </div>
+                <div className="control-option" onClick={() => setActivityType('cycling')}>
+                  <span role="img" aria-label="cyclist">🚴</span> Cycling
+                </div>
+              </div>
             </div>
           ) : (
             <div className="start-confirmation">
               <p className="ready-text">Ready to {activityType === 'running' ? 'Run' : 'Ride'}?</p>
               <button onClick={handleStartRun} className="start-run-button">START</button>
-              <button onClick={() => setActivityType(null)} className="change-activity-button">
-                Change Activity
-              </button>
             </div>
           )}
         </div>
@@ -229,7 +228,7 @@ function App() {
               <h2>Activity too short</h2>
               <p>Run longer to gather more data</p>
               <div className="start-button-container post-run">
-                 <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button">START NEW ACTIVITY</button>
+                 <button onClick={() => { setFinalStats(null); setActivityType(null); }} className="start-run-button post-run-button-small">NEW ACTIVITY</button>
               </div>
             </div>
           )}
@@ -237,6 +236,11 @@ function App() {
       )}
 
       <div className="bottom-content">
+        {runStatus !== 'running' && !finalStats && activityType && (
+          <button onClick={() => setActivityType(null)} className="icon-button change-activity-button">
+            <BackArrowIcon />
+          </button>
+        )}
         {runStatus !== 'running' && !finalStats && (
           <p className="read-the-docs" style={{ padding: '0 2em', textAlign: 'center', marginBottom: '1em' }}>
             Keep Mentra open if using Dash on iPhone. Fixing in next release
